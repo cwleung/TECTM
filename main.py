@@ -5,7 +5,7 @@ import string
 from torch.distributions.constraints import positive
 
 from model import TETM
-from util import environments
+from util import environments, evaluations
 
 torch.set_default_tensor_type('torch.FloatTensor')
 
@@ -27,20 +27,41 @@ if not os.path.exists(main_dir):
     os.mkdir(main_dir)
 ckpt = os.path.join(main_dir, '/best')
 
+def fetch_data(dataset):
+    train_docs = []
+    test_docs = []
+    if dataset is "reuters":
+        nltk.download('reuters')
+        for doc_id in reuters.fileids():
+            if doc_id.startswith("train"):
+                train_docs.append(reuters.raw(doc_id))
+            else:
+                test_docs.append(reuters.raw(doc_id))
+    else:
+        train_data = fetch_20newsgroups(subset='train')
+        test_data = fetch_20newsgroups(subset='test')
+        train_docs = train_data.data
+        test_docs=test_data.data
+
+    train_docs = [re.findall(r'''[\w']+|[.,!?;-~{}`´_<=>:/@*()&'$%#"]''', doc)
+                    for doc in train_docs]
+    test_docs = [re.findall(r'''[\w']+|[.,!?;-~{}`´_<=>:/@*()&'$%#"]''', doc)
+                    for doc in test_docs]
+    return train_docs, test_docs
 
 def evaluate(model, data):
     model.eval()
     with torch.no_grad():
-        td = get_topic_diversity(model.beta(), 25)
-        tc = get_topic_coherence(model.beta(), data)
+        td = evaluations.get_topic_diversity(model.beta(), 25)
+        tc = evaluations.get_topic_coherence(model.beta(), data)
 
         len_te = data.shape[0] // 2
-        docs_t1, docs_t2 = data[:len_te].to(device), data[len_te + 1:].to(device)
+        docs_t1, docs_t2 = data[:len_te].to(device), data[len_te:].to(device)
         beta = model.beta().to(device)
         theta = model.theta(docs_t1)[0]
         pred = torch.mm(theta, beta).to(device)
         torch.nan_to_num(pred, 0)
-        ppl = perplexity(pred.log(), docs_t2)
+        ppl = evaluations.perplexity(pred.log(), docs_t2)
         print(f'perplexity: {ppl}')
     return tc, td, ppl
     # print('\nValidation set: Topic Coherence: {:.4f}, Topic Coherence: {}/{} ({:.0f}%)\n'.format(
@@ -59,16 +80,15 @@ def get_doc_batch(loader, loader_iter):
 
 def data_prep(bsize):
     # Maximum / minimum document frequency
-    # TODO read property
     max_df = env.get_max_df()
-    min_df = env.get_min_df()  # choose desired value for min_df
+    min_df = env.get_min_df()
     # Read stopwords
     with open('../input/stopwords/stops.txt', 'r') as f:
         stops = f.read().split('\n')
     # Read data
     print('reading data...')
-    # TODO check dataset
-    init_docs_tr, init_docs_ts = fetch_data('reuters')
+    data_set = env.get_dataset()
+    init_docs_tr, init_docs_ts = fetch_data(data_set)
 
     def contains_punctuation(w):
         return any(char in string.punctuation for char in w)

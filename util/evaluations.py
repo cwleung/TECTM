@@ -84,17 +84,12 @@ def get_topic_diversity(beta, topk=25):
     :return: None
     """
     num_topics = beta.shape[0]
-
     list_w = torch.zeros((num_topics, topk))
-
     for k in range(num_topics):
         idx = torch.flip(beta[k, :].argsort()[-topk:], [-1])
         list_w[k, :] = idx
-
     n_unique = len(torch.unique(list_w))
-
     TD = n_unique / (topk * num_topics)
-
     print('Topic diversity is: {}'.format(TD))
     return TD
 
