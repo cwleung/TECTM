@@ -252,7 +252,7 @@ class TETM(nn.Module):
 
     def __init__(self, vocab_size, num_topics, hidden, dropout,
                  useEmbedding=False, rho_size=128, pre_embedding=None, emb_type='NN',
-                 trainEmbedding=False, LKJChol=True):
+                 trainEmbedding=False):
         """
         Init parameters
         :param LKJChol:
@@ -266,7 +266,6 @@ class TETM(nn.Module):
         :param emb_type: Type of embedding
         """
         super().__init__()
-        self.LKJChol = LKJChol
         self.vocab_size = vocab_size
         self.num_topics = num_topics
         self.encoder = Encoder(vocab_size, num_topics, hidden, dropout)

@@ -185,8 +185,7 @@ prodLDA = TETM(
     useEmbedding=True,
     trainEmbedding=True,
     emb_type='Transformer',
-    rho_size=512,
-    LKJChol=False
+    rho_size=512
 ).to(device)
 
 # ELBO
