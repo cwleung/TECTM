@@ -18,7 +18,7 @@ class Encoder(nn.Module):
     Output: θ
     """
 
-    def __init__(self, vocab_size, num_topics, hidden, dropout):
+    def __init__(self, vocab_size, num_topics, hidden, dropout, batchNorm):
         """
 
         :param vocab_size:
@@ -27,6 +27,7 @@ class Encoder(nn.Module):
         :param dropout:
         """
         super().__init__()
+        self.batchNorm = batchNorm
         self.drop = nn.Dropout(dropout)  # dropout
         self.fc1 = nn.Linear(vocab_size, hidden)  # fully-connected layer 1
         self.fc2 = nn.Linear(hidden, hidden)  # fully-connected layer 2
@@ -51,12 +52,13 @@ class Encoder(nn.Module):
         #         h = self.drop(h)
 
         # μ and Σ are two inference networks
-        mu_theta = self.bnmu(self.fcmu(h))
-        sigma_theta = self.bnlv(self.fclv(h))
-        #         mu_theta = self.fcmu(h)
-        #         sigma_theta = self.fclv(h)
+        if self.batchNorm:
+            mu_theta = self.bnmu(self.fcmu(h))
+            sigma_theta = self.bnlv(self.fclv(h))
+        else:
+            mu_theta = self.fcmu(h)
+            sigma_theta = self.fclv(h)
 
-        # KL metrics obsoleted
         kl_theta = -0.5 * torch.sum(1 + sigma_theta - mu_theta.pow(2)
                                     - sigma_theta.exp(), dim=-1).mean().to(device)
 
@@ -81,7 +83,7 @@ class Decoder(nn.Module):
     # Need to be refactored with Topic Embedding
     def __init__(self, vocab_size, num_topics, dropout,
                  useEmbedding=False, rho_size=128, pre_embedding=None, emb_type='NN',
-                 trainEmbedding=False):
+                 trainEmbedding=False, trans_layer=4, trans_head=8, trans_dim=1024):
         """
         Init
         :param vocab_size: Vocabulary size
@@ -110,7 +112,7 @@ class Decoder(nn.Module):
             # use original embedding
             else:
                 self.fcrho = TopicEmbedding(rho_size, vocab_size, pre_embedding,
-                                            emb_type, dropout)
+                                            emb_type, dropout, trans_layer, trans_head, trans_dim)
             # Call α
             self.fcalpha = nn.Linear(rho_size, num_topics, bias=False)
             self.bnalpha = nn.BatchNorm1d(num_topics, affine=False)
@@ -174,7 +176,7 @@ class TopicEmbedding(nn.Module):
 
     def __init__(self, rho_size, vocab_size, pre_embedding=None,
                  emb_type='NN', dropout=0.1,
-                 n_heads=8, n_code=8):
+                 n_heads=8, n_layer=4, n_dim=1024, n_code=8):
         """
         Init parameter
         :param rho_size: Embedding size ρ
@@ -199,10 +201,8 @@ class TopicEmbedding(nn.Module):
                     n_code, n_heads, rho_size, inner_ff_size,
                     vocab_size, seq_len, dropout)
             elif emb_type is 'Transformer':
-                nlayers = 6  # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-                nhid = 512
                 self.rho = TransformerModel(
-                    vocab_size, rho_size, n_heads, nhid, nlayers, dropout).to(device)
+                    vocab_size, rho_size, n_heads, n_dim, n_layer, dropout).to(device)
             else:
                 raise ValueError('Wrong Embedding Type')
         # Import Embedding
@@ -252,7 +252,7 @@ class TETM(nn.Module):
 
     def __init__(self, vocab_size, num_topics, hidden, dropout,
                  useEmbedding=False, rho_size=128, pre_embedding=None, emb_type='NN',
-                 trainEmbedding=False):
+                 trainEmbedding=False, batchNorm=True, trans_layer=4, trans_head=8, trans_dim=1024):
         """
         Init parameters
         :param LKJChol:
@@ -268,10 +268,10 @@ class TETM(nn.Module):
         super().__init__()
         self.vocab_size = vocab_size
         self.num_topics = num_topics
-        self.encoder = Encoder(vocab_size, num_topics, hidden, dropout)
+        self.encoder = Encoder(vocab_size, num_topics, hidden, dropout, batchNorm)
         self.decoder = Decoder(vocab_size, num_topics, dropout,
                                useEmbedding, rho_size, pre_embedding, emb_type,
-                               trainEmbedding)
+                               trainEmbedding, trans_layer, trans_head, trans_dim)
 
         self.useEmbedding = useEmbedding
         self.emb_type = emb_type

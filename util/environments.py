@@ -1,14 +1,13 @@
 import argparse
+import torch
 
 import data
-import torch
-from pyro.infer import RenyiELBO, TraceGraph_ELBO, TraceMeanField_ELBO, TraceTailAdaptive_ELBO, TraceEnum_ELBO
 
 
 class Environment:
     def __init__(self):
         self.__init__()
-        parser = argparse.ArgumentParser(description="LKJ Correlated Topic Model")
+        parser = argparse.ArgumentParser(description="Transformer Embedded Topic Model")
         # Environment setting
         parser.add_argument("-st", "--smoke-test", default=False, type=bool)
         parser.add_argument("-s", "--seed", default=0, type=int)
@@ -22,16 +21,18 @@ class Environment:
         parser.add_argument("-ds", "--dataset", default="20Newsgroups", type=str)
         parser.add_argument("-nd", "--min-df", default=20, type=int)
         parser.add_argument("-xd", "--max-df", default=0.7, type=float)
-        # Traning-related
+        # Training-related
         parser.add_argument("-e", "--epochs", default=200, type=int)
-        parser.add_argument("-nb", "--num-batches", default=2048, type=int)
+        parser.add_argument("-bs", "--batches-size", default=1024, type=int)
+        parser.add_argument("-emb", "--embedding", default="Transformer", type=str)
+        parser.add_argument("-embsize", "--embedding-size", default=512, type=int)
         parser.add_argument("-o", "--alpha", default=1, type=int)
         parser.add_argument("-lr", "--learning-rate", default=2e-3, type=float)
+        parser.add_argument("-l2", "--regularization-parameter", default=1e-6, type=float)
         # Transformer
-        # head
-        # hid
-        # hidden layer
-
+        parser.add_argument("-th", "--num-of-heads", default=8, type=int)
+        parser.add_argument("-tl", "--transformer-layer", default=4, type=int)
+        parser.add_argument("-td", "--transformer-dim", default=1024, type=int)
         self.args = parser.parse_args()
 
     def get_device(self):
@@ -40,8 +41,11 @@ class Environment:
             torch.set_default_tensor_type('torch.cuda.FloatTensor')
         return device
 
-    def get_smoke_test(self):
-        return self.args.smoke_test
+    def get_embedding(self):
+        return self.args.embedding
+
+    def get_embedding_size(self):
+        return self.args.embedding_size
 
     def get_seed(self):
         return self.args.seed
@@ -84,8 +88,8 @@ class Environment:
     def get_dataset(self):
         print(f'Dataset: {self.args.dataset}')
         if self.args.dataset == "20NewsGroup":
-            dataProcessor = data.data_20newsgroup
-        elif self.args.dataset == "RCV-1":
+            pass
+        elif self.args.dataset == "Reuters":
             pass
         else:
             raise ValueError('Wrong Dataset')
@@ -109,5 +113,15 @@ class Environment:
     def get_learning_rate(self):
         return self.args.learning_rate
 
-    def get_top_words(self):
-        return self.args.top_words
+    def get_regularization_parameter(self):
+        return self.args.regularization_parameter
+
+    def get_transformer_head(self):
+        return self.args.num_of_heads
+
+    def get_transformer_dim(self):
+        return self.args.transformer_dim
+
+    def get_transformer_layer(self):
+        return self.args.transformer_layer
+

@@ -2,22 +2,25 @@ import itertools
 import random
 import re
 import string
-from pyro.infer import SVI, RenyiELBO, TraceGraph_ELBO, Trace_ELBO
 from torch.distributions.constraints import positive
 
+from model import TETM
+from util import environments
+
+torch.set_default_tensor_type('torch.FloatTensor')
+
+env = environments.Environment()
+
 # setting global variables
-# TODO read property
-seed = 2021
+seed = env.get_seed()
 torch.manual_seed(seed)
 pyro.set_rng_seed(seed)
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-torch.set_default_tensor_type('torch.FloatTensor')
-# TODO read property
-num_topics = 20  # if not smoke_test else 3
-batch_size = 1024
-learning_rate = 2e-3
-num_epochs = 200
+device = env.get_device()
+num_topics = env.get_num_topics()  # if not smoke_test else 3
+batch_size = env.get_num_batches()
+learning_rate = env.get_learning_rate()
+num_epochs = env.get_epochs()
 
 main_dir = './model/'
 if not os.path.exists(main_dir):
@@ -57,8 +60,8 @@ def get_doc_batch(loader, loader_iter):
 def data_prep(bsize):
     # Maximum / minimum document frequency
     # TODO read property
-    max_df = 0.7
-    min_df = 50  # choose desired value for min_df
+    max_df = env.get_max_df()
+    min_df = env.get_min_df()  # choose desired value for min_df
     # Read stopwords
     with open('../input/stopwords/stops.txt', 'r') as f:
         stops = f.read().split('\n')
@@ -153,16 +156,16 @@ def train(model, cvz, data_loader):
         # IF: check bert is used
         bert_model = model.getTransformer()
         bert_loss = calc_bert_loss(bert_model, masked_input, masked_target, loss_bert)  # bert loss
-        # TODO Factorize
         optim = torch.optim.Adam(list(model.parameters()) + list(bert_model.parameters()),
-                                 weight_decay=1.2e-6, lr=2e-3, betas=(.9, .999))
+                                 weight_decay=env.get_regularization_parameter(),
+                                 lr=env.get_learning_rate(),
+                                 betas=(.9, .999))
         curr_loss = kl_loss + recon_loss + bert_loss
         # torch.nn.utils.clip_grad_norm_(list(getParams(model, batch)), 0.0)
         curr_loss.backward()
         optim.step()
         running_loss += curr_loss.detach().item()
         running_prob += bert_loss.detach().item()
-        #         running_prob += calc_log_sum(model, batch, 2)
         optim.zero_grad()
         model.zero_grad()
     return running_loss, running_prob
@@ -174,18 +177,17 @@ dataset, data_loader, bow_tr, bow_te, vocab = data_prep(batch_size)
 bow_te = bow_te[torch.randperm(len(bow_te)), :]
 
 # initialize
-# TODO read property
-# Transformer
-# Model-related
 prodLDA = TETM(
     vocab_size=len(dataset.vocab),
     num_topics=num_topics,
-    hidden=100 if not smoke_test else 10,
-    dropout=0.0,
-    useEmbedding=True,
-    trainEmbedding=True,
-    emb_type='Transformer',
-    rho_size=512
+    hidden=100,
+    dropout=env.get_drop_out_rate(),
+    emb_type=env.get_embedding(),
+    rho_size=env.get_embedding_size(),
+    batchNorm=env.get_batch_normalization(),
+    trans_layer=env.get_transformer_layer(),
+    trans_head=env.get_transformer_head(),
+    trans_dim=env.get_transformer_dim()
 ).to(device)
 
 # ELBO
@@ -222,7 +224,7 @@ for epoch in bar:
 with open(ckpt, 'rb') as f:
     prodLDA = torch.load(f)
 prodLDA = prodLDA.to(device)
-prodLDA.decoder.fcrho.emb_type = 'Transformer'
+prodLDA.decoder.fcrho.emb_type = env.get_embedding()
 val_tc = evaluate(prodLDA, bow_te)
 
 print(f'Best topic coherence: {val_tc}')
