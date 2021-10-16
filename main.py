@@ -143,8 +143,8 @@ def data_prep(bsize):
 # input: batch data
 # output: cross entropy loss
 def calc_bert_loss(model, X, y, loss_model):
-    src_mask = model.generate_square_subsequent_mask(X.size(0)).to(device)
-    output = model(X, y, src_mask)
+    tgt_mask = model.generate_square_subsequent_mask(X.size(0)).to(device)
+    output = model(X, y, None, tgt_mask)
     # compute the cross entropy loss
     output_v = output.view(-1, output.shape[-1])
     target_v = y.view(-1, 1).squeeze()

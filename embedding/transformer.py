@@ -11,12 +11,18 @@ class TransformerModel(nn.Module):
     def __init__(self, ntoken, ninp, nhead, nhid, nlayers, dropout=0.5):
         super(TransformerModel, self).__init__()
         self.model_type = 'Transformer'
-        self.pos_encoder = PositionalEncoding(ninp, dropout)
-        encoder_layers = TransformerEncoderLayer(ninp, nhead, nhid, dropout)
-        self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
-        self.encoder = nn.Embedding(ntoken, ninp)
         self.ninp = ninp
-        self.decoder = nn.Linear(ninp, ntoken)
+        self.pos_encoder = PositionalEncoding(ninp, dropout)
+
+        self.encoder = nn.Embedding(ntoken, ninp)
+        encoder_layers = TransformerEncoderLayer(ninp, nhead, nhid, dropout)
+        encoder_norm = LayerNorm(ninp)
+        self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers, encoder_norm)
+
+        decoder_layer = TransformerDecoderLayer(ninp, nhead, nhid, dropout)
+        decoder_norm = LayerNorm(ninp)
+        self.decoder = TransformerDecoder(decoder_layer, nlayers, decoder_norm)
+        self.decoder_out = nn.Linear(ninp, ntoken)
 
         self.init_weights()
 
@@ -28,15 +34,24 @@ class TransformerModel(nn.Module):
     def init_weights(self):
         initrange = 0.1
         self.encoder.weight.data.uniform_(-initrange, initrange)
-        self.decoder.bias.data.zero_()
-        self.decoder.weight.data.uniform_(-initrange, initrange)
 
-    def forward(self, src, src_mask):
+    #         self.decoder.bias.data.zero_()
+    #         self.decoder.weight.data.uniform_(-initrange, initrange)
+
+    def forward(self, src, tgt, src_mask, tgt_mask):
         src = self.encoder(src) * math.sqrt(self.ninp)
         src = self.pos_encoder(src)
-        output = self.transformer_encoder(src, src_mask)
-        output = self.decoder(output)
+        # pos encode tgt
+        tgt = self.encoder(tgt) * math.sqrt(self.ninp)
+        tgt = self.pos_encoder(tgt)
+
+        output = self.transformer_encoder(src, mask=src_mask)
+        output = self.decoder(tgt, output, tgt_mask=tgt_mask)
+        output = self.decoder_out(output)
         return output
+
+
+#         return F.log_softmax(output, dim=-1)
 
 
 class PositionalEncoding(nn.Module):
@@ -82,7 +97,7 @@ class SentencesDataset(Dataset):
         s = s[:dataset.seq_len]
         [s.append(dataset.IGNORE_IDX) for _ in range(dataset.seq_len - len(s))]
         # apply random mask
-        s = [(dataset.MASK_IDX, w) if random.random() < p_random_mask else (w, dataset.IGNORE_IDX) for w in s]
+        # s = [(dataset.MASK_IDX, w) if random.random() < p_random_mask else (w, dataset.IGNORE_IDX) for w in s]
         # add count vectorizor
         return {'input': torch.Tensor([w[0] for w in s]).long(),
                 'index': np.array(index),
