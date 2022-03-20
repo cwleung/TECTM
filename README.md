@@ -9,8 +9,8 @@ Chun-Wa Leung, Akihiko Takano, and Takeshi Abekawa.
 
 ## Datasets
 The datasets can be found in following reference
-+ 20Newsgroups: from sklearn.datasets package 
-+ Reuters-21578: from nltk corpus
++ 20Newsgroups: from `sklearn.datasets` package 
++ Reuters-21578: from `nltk` corpus
 + NeurIPS: https://www.kaggle.com/datasets/rowhitswami/nips-papers-1987-2019-updated
 + UN-debates: https://www.kaggle.com/datasets/unitednations/un-general-debates 
 
