@@ -9,10 +9,10 @@ def perplexity(pred, docs_te):
     Parameters
     ----------
     :param docs_te: tensor (D,V)
-        Testing set for the document 
+        Testing set for the document
     :param pred: log predictive distribution
-    
-    Return 
+
+    Return
     ------
     :return ppl: int
         Perplexity of held-out word
@@ -48,7 +48,7 @@ def get_topic_coherence(beta, data):
         Dataset document-vocab frequency matrix
     :return: None
     """
-    D = len(data)
+    D = torch.tensor(len(data))  ## number of docs...data is list of documents
     TC = []
     num_topics = len(beta)
     counter = 0
@@ -60,17 +60,18 @@ def get_topic_coherence(beta, data):
             D_wi = get_df(data, word)
             j = i + 1
             tmp = 0
-            while len(top_10) > j > i:
+            while j < len(top_10) and j > i:
                 D_wj, D_wi_wj = get_df(data, word, top_10[j])
                 if D_wi_wj == 0:
                     f_wi_wj = -1
                 else:
-                    f_wi_wj = -1 + (np.log(D_wi) + np.log(D_wj) - 2.0 * np.log(D)) / (np.log(D_wi_wj) - np.log(D))
+                    f_wi_wj = -1 + (torch.log(D_wi) + torch.log(D_wj) - 2.0 * torch.log(D)) / (
+                            torch.log(D_wi_wj) - torch.log(D))
                 tmp += f_wi_wj
                 j += 1
                 counter += 1
             TC_k += tmp
-        TC.append(TC_k)
+        TC.append(TC_k.detach().cpu().numpy())
     TC = np.mean(TC) / counter
     print('Topic coherence is: {}'.format(TC))
     return TC
@@ -94,5 +95,26 @@ def get_topic_diversity(beta, topk=25):
     return TD
 
 
-if __name__ == '__main__':
-    pass
+def get_npmi(beta, data, vocab, perm):
+    D = torch.tensor(len(data))  ## number of docs...data is list of documents
+    for k in perm:
+        top_10 = list(torch.flip(beta[k].argsort()[-11:], [0]))
+        top_words = [vocab[a] for a in top_10]
+        TC_k = 0
+        counter = 0
+        for i, word in enumerate(top_10):
+            D_wi = get_df(data, word)
+            j = i + 1
+            tmp = 0
+            while j < len(top_10) and j > i:
+                D_wj, D_wi_wj = get_df(data, word, top_10[j])
+                if D_wi_wj == 0:
+                    f_wi_wj = -1
+                else:
+                    f_wi_wj = -1 + (torch.log(D_wi) + torch.log(D_wj) - 2.0 * torch.log(D)) / (
+                            torch.log(D_wi_wj) - torch.log(D))
+                tmp += f_wi_wj
+                j += 1
+                counter += 1
+            TC_k += tmp
+        print(f'NPMI: {TC_k / counter}, Topic Word: {" ".join(top_words)}')

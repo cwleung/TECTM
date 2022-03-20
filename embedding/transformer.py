@@ -1,27 +1,28 @@
 import math
+import random
 
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.nn import TransformerEncoder, TransformerEncoderLayer
+from torch.nn import TransformerEncoder, TransformerEncoderLayer, LayerNorm
+from torch.utils.data import Dataset
 
 
 class TransformerModel(nn.Module):
 
-    def __init__(self, ntoken, ninp, nhead, nhid, nlayers, dropout=0.5):
+    def __init__(self, ntoken, ninp, nhead, nhid, nlayers, dropout=0):
         super(TransformerModel, self).__init__()
         self.model_type = 'Transformer'
         self.ninp = ninp
         self.pos_encoder = PositionalEncoding(ninp, dropout)
 
-        self.encoder = nn.Embedding(ntoken, ninp)
         encoder_layers = TransformerEncoderLayer(ninp, nhead, nhid, dropout)
         encoder_norm = LayerNorm(ninp)
+        self.encoder = nn.Embedding(ntoken, ninp)
         self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers, encoder_norm)
-
-        decoder_layer = TransformerDecoderLayer(ninp, nhead, nhid, dropout)
-        decoder_norm = LayerNorm(ninp)
-        self.decoder = TransformerDecoder(decoder_layer, nlayers, decoder_norm)
+        #         decoder_layer = TransformerDecoderLayer(ninp, nhead, nhid, dropout)
+        #         decoder_norm = LayerNorm(ninp)
+        #         self.decoder = TransformerDecoder(decoder_layer, nlayers,decoder_norm)
         self.decoder_out = nn.Linear(ninp, ntoken)
 
         self.init_weights()
@@ -34,31 +35,23 @@ class TransformerModel(nn.Module):
     def init_weights(self):
         initrange = 0.1
         self.encoder.weight.data.uniform_(-initrange, initrange)
+        # self.decoder.bias.data.zero_()
+        # self.decoder.weight.data.uniform_(-initrange, initrange)
 
-    #         self.decoder.bias.data.zero_()
-    #         self.decoder.weight.data.uniform_(-initrange, initrange)
-
-    def forward(self, src, tgt, src_mask, tgt_mask):
+    def forward(self, src):
         src = self.encoder(src) * math.sqrt(self.ninp)
-        src = self.pos_encoder(src)
-        # pos encode tgt
-        tgt = self.encoder(tgt) * math.sqrt(self.ninp)
-        tgt = self.pos_encoder(tgt)
-
-        output = self.transformer_encoder(src, mask=src_mask)
-        output = self.decoder(tgt, output, tgt_mask=tgt_mask)
+        # src = self.pos_encoder(src)
+        output = self.transformer_encoder(src)
         output = self.decoder_out(output)
+        # return F.log_softmax(output)
         return output
-
-
-#         return F.log_softmax(output, dim=-1)
 
 
 class PositionalEncoding(nn.Module):
 
     def __init__(self, d_model, dropout=0.1, max_len=5000):
         super(PositionalEncoding, self).__init__()
-        self.dropout = nn.Dropout(p=dropout)
+        self.dropout = nn.Dropout(dropout)
 
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
@@ -74,18 +67,22 @@ class PositionalEncoding(nn.Module):
 
 
 class SentencesDataset(Dataset):
+    # Init dataset
     def __init__(self, sentences, vocab, seq_len):
         dataset = self
+
         dataset.sentences = sentences
         dataset.vocab = vocab + ['<ignore>', '<oov>', '<mask>']
         dataset.vocab = {e: i for i, e in enumerate(dataset.vocab)}
         dataset.rvocab = {v: k for k, v in dataset.vocab.items()}
         dataset.seq_len = seq_len
+
         # special tags
         dataset.IGNORE_IDX = dataset.vocab['<ignore>']  # replacement tag for tokens to ignore
         dataset.OUT_OF_VOCAB_IDX = dataset.vocab['<oov>']  # replacement tag for unknown words
         dataset.MASK_IDX = dataset.vocab['<mask>']  # replacement tag for the masked word prediction task
 
+    # fetch data
     def __getitem__(self, index, p_random_mask=0.15):
         dataset = self
         # while we don't have enough word to fill the sentence for a batch
@@ -95,14 +92,15 @@ class SentencesDataset(Dataset):
             index += 1
         # ensure that the sequence is of length seq_len
         s = s[:dataset.seq_len]
-        [s.append(dataset.IGNORE_IDX) for _ in range(dataset.seq_len - len(s))]
-        # apply random mask
-        # s = [(dataset.MASK_IDX, w) if random.random() < p_random_mask else (w, dataset.IGNORE_IDX) for w in s]
+        [s.append(dataset.IGNORE_IDX) for _ in range(dataset.seq_len - len(s))]  # PAD ok
+
+        s = [(dataset.MASK_IDX, w) if random.random() < p_random_mask else (w, dataset.IGNORE_IDX) for w in s]
         # add count vectorizor
         return {'input': torch.Tensor([w[0] for w in s]).long(),
                 'index': np.array(index),
                 'target': torch.Tensor([w[1] for w in s]).long()}
 
+    # return length
     def __len__(self):
         return len(self.sentences)
 
