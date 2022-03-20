@@ -17,7 +17,7 @@ The datasets can be found in following reference
 
 ## Run
 To execute the TECTM, run the following command for the default settings. 
-For detailed configurations, you may read the parameter specifications in main.py. 
+For detailed configurations, you may read the parameter specifications in `main.py`. 
 ```
 python main.py
 ```
