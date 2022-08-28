@@ -73,8 +73,9 @@ class Encoder(nn.Module):
 
     def forward(self, inputs, q_sig):
         h = self.act1(self.fc1(inputs.nan_to_num()))
+        h = self.drop(h)
         h = self.act2(self.fc2(h))
-        #         h = self.drop(h)
+        h = self.drop(h)
         options = dict(dtype=torch.float32, device=device)
         mu_theta = self.bnmu(self.fcmu(h))
         if self.LKJChol:
@@ -182,7 +183,7 @@ class TopicEmbedding(nn.Module):
     """
 
     def __init__(self, rho_size, vocab_size, pre_embedding=None,
-                 emb_type='NN', dropout=0.0, n_heads=2, nlayers=2, nhid=300):
+                 emb_type='NN', dropout=0.25, n_heads=2, nlayers=2, nhid=300):
         """
         Init parameter
         :param rho_size: Embedding size ρ
@@ -192,7 +193,6 @@ class TopicEmbedding(nn.Module):
         """
         super().__init__()
         self.emb_type = emb_type
-        # Topic Embedding
         # define the word embedding (ρ'α)
         # Embedding: Embedding->BOWs (E->W)
         if pre_embedding is None:
@@ -200,17 +200,12 @@ class TopicEmbedding(nn.Module):
             if emb_type is 'NN':
                 self.rho = nn.Linear(rho_size, vocab_size, bias=False)
             elif emb_type is 'Transformer':
-                # nlayers = 2  # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-                # nhid = 300
                 self.rho = TransformerModel(
                     vocab_size, rho_size, n_heads, nhid, nlayers, dropout).to(device)
             else:
                 raise ValueError('Wrong Embedding Type')
-        # Import Embedding
         else:
             self.rho = pre_embedding.clone().float().to(device)
-            # num_embeddings, emsize = pre_embedding.size()
-            # rho = nn.Embedding(num_embeddings, emsize)
 
     # used for training
     def weight(self):

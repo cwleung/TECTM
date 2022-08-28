@@ -53,13 +53,14 @@ args = parser.parse_args()
 
 DATA_DIR = args.data_dir
 
-
 smoke_test = args.smoke_test
 seed = args.seed
 torch.manual_seed(seed)
 pyro.set_rng_seed(seed)
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# device = torch.device('mps')
+print(device)
 torch.set_default_tensor_type('torch.FloatTensor')
 
 num_topics = args.num_topics if not smoke_test else 3
@@ -165,14 +166,11 @@ def evaluate(model, data):
 
 
 def data_prep(bsize):
-    # Maximum / minimum document frequency
     max_df = args.max_df
-    min_df = args.min_df  # choose desired value for min_df
-
+    min_df = args.min_df
     # Read stopwords
     with open(os.path.join(DATA_DIR, 'stops.txt'), 'r') as f:
         stops = f.read().split('\n')
-
     # Read data
     print('reading data...')
     init_docs_tr, init_docs_ts = fetch_data(args.dataset)
@@ -263,7 +261,7 @@ def train(model, cvz, data_loader, emb_type='NN'):
         masked_target = data['target'].to(device)
         # loss
         batch = cvz[masked_index.long() - 1, :].to(device)
-        batch = torch.nan_to_num(batch)  # remove nan
+        # batch = torch.nan_to_num(batch)  # remove nan
         if torch.cuda.is_available():
             torch.set_default_tensor_type('torch.cuda.FloatTensor')
         kl_loss = loss_elbo(model.model, model.guide, batch)  # loss function

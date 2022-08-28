@@ -1,5 +1,3 @@
-import os
-
 import numpy as np
 import pandas as pd
 
@@ -57,7 +55,6 @@ def word_export(output_path, beta, vocab, top_display=10):
     with open(output_path, 'w') as output:
         for topic in range(num_topics):
             output.write("==========\t%d\t==========\n" % topic)
-            # Word distribution (V,)
             word_dist = beta[topic]
             for word_idx in np.argsort(word_dist)[:-top_display - 1:-1]:
                 output.write("%s\t%g\n" % (vocab[word_idx], word_dist[word_idx]))

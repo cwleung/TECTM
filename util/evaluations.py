@@ -48,7 +48,7 @@ def get_topic_coherence(beta, data):
         Dataset document-vocab frequency matrix
     :return: None
     """
-    D = torch.tensor(len(data))  ## number of docs...data is list of documents
+    D = torch.tensor(len(data))
     TC = []
     num_topics = len(beta)
     counter = 0
@@ -96,7 +96,7 @@ def get_topic_diversity(beta, topk=25):
 
 
 def get_npmi(beta, data, vocab, perm):
-    D = torch.tensor(len(data))  ## number of docs...data is list of documents
+    D = torch.tensor(len(data))
     for k in perm:
         top_10 = list(torch.flip(beta[k].argsort()[-11:], [0]))
         top_words = [vocab[a] for a in top_10]
