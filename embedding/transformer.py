@@ -1,10 +1,7 @@
 import math
-import numpy as np
-import random
 import torch
 import torch.nn as nn
 from torch.nn import TransformerEncoder, TransformerEncoderLayer, LayerNorm
-from torch.utils.data import Dataset
 
 
 class TransformerModel(nn.Module):

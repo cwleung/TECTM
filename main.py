@@ -12,18 +12,18 @@ from pyro.infer import Trace_ELBO
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import train_test_split
-# setting global variables
 from torch import nn
 from tqdm import trange
 
-from embedding.transformer import SentencesDataset
+from data.sentence_dataset import SentencesDataset
 from model.TECTM import TECTM
 from util.evaluations import get_npmi, get_topic_diversity, get_topic_coherence, perplexity
 
 parser = argparse.ArgumentParser(description="Transformer Embedded Correlated Topic Model")
 # Environment setting
 parser.add_argument("-st", "--smoke-test", default=False, type=bool)
-parser.add_argument("-s", "--seed", default=2022, type=int)
+parser.add_argument("-s", "--seed", default=42, type=int)
+parser.add_argument("-dd", "--data-dir", default="./", type=str)
 # Topic model-related
 parser.add_argument("-nt", "--num-topics", default=20, type=int)
 # NN-related
@@ -51,7 +51,9 @@ parser.add_argument("-td", "--trans_dim", default=1024, type=int)
 parser.add_argument("-sl", "--seq-len", default=20, type=int)
 args = parser.parse_args()
 
-# parameters
+DATA_DIR = args.data_dir
+
+
 smoke_test = args.smoke_test
 seed = args.seed
 torch.manual_seed(seed)
@@ -65,7 +67,7 @@ batch_size = args.batch_size
 learning_rate = args.learning_rate
 num_epochs = args.epoch if not smoke_test else 3
 emb_type = args.embedding
-# training
+
 pyro.clear_param_store()
 
 main_dir = './model/'
@@ -90,12 +92,12 @@ def fetch_data(dataset):
         train_docs = train_data.data
         test_docs = test_data.data
     elif dataset == 'nips':
-        data = pd.read_csv('../input/nips-papers/papers.csv')
+        data = pd.read_csv(os.path.join(DATA_DIR, '/papers.csv'))
         data = data[~data.paper_text.isnull()]
         docs = data.paper_text.values
         train_docs, test_docs = train_test_split(docs, test_size=0.2, random_state=args.seed)
     elif dataset == 'undebates':
-        data = pd.read_csv('/input/un-general-debates.csv')
+        data = pd.read_csv(os.path.join(DATA_DIR, '/un-general-debates.csv'))
         data = data[~data.text.isnull()]
         docs = data.text.values
         train_docs, test_docs = train_test_split(docs, test_size=0.2, random_state=args.seed)
@@ -139,7 +141,7 @@ def getParams(model, data):
     return main_params
 
 
-def reconloss(model, bows):
+def recon_loss(model, bows):
     beta = model.beta().to(device)
     theta = model.theta(bows)[0]
     pred = torch.mm(theta, beta).to(device)
@@ -168,7 +170,7 @@ def data_prep(bsize):
     min_df = args.min_df  # choose desired value for min_df
 
     # Read stopwords
-    with open('./static/stops.txt', 'r') as f:
+    with open(os.path.join(DATA_DIR, 'stops.txt'), 'r') as f:
         stops = f.read().split('\n')
 
     # Read data
@@ -196,7 +198,7 @@ def data_prep(bsize):
     print('counting document frequency of words...')
     cvectorizer = CountVectorizer(min_df=min_df, max_df=max_df, stop_words=frozenset(stops))
     cvz = cvectorizer.fit_transform(init_docs)
-    # filter for the vocabulary
+
     no_cnt = 0
     docs = []
     for doc in init_docs:
@@ -229,8 +231,7 @@ def data_prep(bsize):
 
     dataset = SentencesDataset(sentences[:-tsSize], list(vocab), args.seq_len)  # seq_len
     kwargs = {
-        'shuffle': True,  # 'drop_last': False,
-        'pin_memory': True, 'batch_size': bsize
+        'shuffle': True, 'pin_memory': True, 'batch_size': bsize
     }
     data_loader = torch.utils.data.DataLoader(dataset, **kwargs)
 
@@ -339,14 +340,13 @@ for epoch in bar:
     bar.set_postfix(elbo_loss='{:.2e}'.format(running_loss),
                     bert_loss='{:.2e}'.format(running_prob))
 
-# # Final result
-# with open(ckpt, 'rb') as f:
-#     prodLDA = torch.load(f)
-# prodLDA = prodLDA.to(device)
-# prodLDA.decoder.fcrho.emb_type='Transformer'
-# val_tc = evaluate(prodLDA, bow_te)
+with open(ckpt, 'rb') as f:
+    prodLDA = torch.load(f)
+prodLDA = prodLDA.to(device)
+prodLDA.decoder.fcrho.emb_type = 'Transformer'
+val_tc = evaluate(prodLDA, bow_te)
 
-# print(f'Best topic coherence: {val_tc}')
+print(f'Best topic coherence: {val_tc}')
 
 theta = prodLDA.guide(bow_te)[0]
 beta = prodLDA.beta()

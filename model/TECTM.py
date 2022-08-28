@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from pyro.infer import Trace_ELBO
-from torch.distributions.constraints import positive, positive_definite
+from torch.distributions.constraints import positive
 
 from embedding.transformer import TransformerModel
 
@@ -17,6 +17,7 @@ class Encoder(nn.Module):
     Input: BOWs
     Output: θ~q(θ)
     """
+
     def __init__(self, vocab_size, num_topics, hidden, dropout, LKJChol=True):
         """
         :param vocab_size:
@@ -27,15 +28,15 @@ class Encoder(nn.Module):
         super().__init__()
         self.num_topics = num_topics
         self.LKJChol = LKJChol
-        self.drop = nn.Dropout(dropout)  # dropout
-        self.fc1 = nn.Linear(vocab_size, hidden)  # fully-connected layer 1
-        self.fc2 = nn.Linear(hidden, hidden)  # fully-connected layer 2
-        self.fcmu = nn.Linear(hidden, num_topics, bias=True)  # fully-connected layer output mu
-        self.fclv = nn.Linear(hidden, num_topics, bias=True)  # fully-connected layer output sigma
+        self.drop = nn.Dropout(dropout)
+        self.fc1 = nn.Linear(vocab_size, hidden)
+        self.fc2 = nn.Linear(hidden, hidden)
+        self.fcmu = nn.Linear(hidden, num_topics, bias=True)
+        self.fclv = nn.Linear(hidden, num_topics, bias=True)
         self.act1 = nn.Softplus()
         self.act2 = nn.Softplus()
-        self.bnmu = nn.BatchNorm1d(num_topics, affine=False)  # avoid component collapse
-        self.bnlv = nn.BatchNorm1d(num_topics, affine=False)  # avoid component collapse
+        self.bnmu = nn.BatchNorm1d(num_topics, affine=False)
+        self.bnlv = nn.BatchNorm1d(num_topics, affine=False)
 
         self.p_sigma = None
 
@@ -102,9 +103,18 @@ class Decoder(nn.Module):
 
     # Pre-trained embedding, alpha, rho, embedding method
     # Need to be refactored with Topic Embedding
+    def forward(self, theta):  # (D,K)
+        if self.trainEmbedding:
+            res = torch.mm(theta, self.beta()).to(device)
+        elif self.useEmbedding:
+            res = torch.mm(theta, self.beta()).to(device)
+        else:
+            res = F.softmax(self.bnbeta(self.fcbeta(theta)), dim=1)
+        return res.float()
+
+    # need to forward the loss of the neural network function
     def __init__(self, vocab_size, num_topics, dropout, useEmbedding=False, rho_size=128, pre_embedding=None,
-                 emb_type='NN', trainEmbedding=False,
-                 trans_heads=2, trans_layers=2, trans_dim=300):
+                 emb_type='NN', trainEmbedding=False, trans_heads=2, trans_layers=2, trans_dim=300):
         """
         Init
         :param vocab_size: Vocabulary size
@@ -145,16 +155,6 @@ class Decoder(nn.Module):
         if torch.cuda.is_available():
             self.cuda()
 
-    # need to forward the loss of the neural network function
-    def forward(self, theta):  # (D,K)
-        if self.trainEmbedding:
-            res = torch.mm(theta, self.beta()).to(device)
-        elif self.useEmbedding:
-            res = torch.mm(theta, self.beta()).to(device)
-        else:
-            res = F.softmax(self.bnbeta(self.fcbeta(theta)), dim=1)
-        return res.float()
-
     def beta(self):
         if self.trainEmbedding:
             if self.emb_type is 'BERT' or 'Transformer':
@@ -181,7 +181,6 @@ class TopicEmbedding(nn.Module):
     Output: Topic Embedding ρ: (K, E)
     """
 
-    # TODO nlayers, nhid
     def __init__(self, rho_size, vocab_size, pre_embedding=None,
                  emb_type='NN', dropout=0.0, n_heads=2, nlayers=2, nhid=300):
         """
@@ -201,8 +200,8 @@ class TopicEmbedding(nn.Module):
             if emb_type is 'NN':
                 self.rho = nn.Linear(rho_size, vocab_size, bias=False)
             elif emb_type is 'Transformer':
-                #nlayers = 2  # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-                #nhid = 300
+                # nlayers = 2  # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+                # nhid = 300
                 self.rho = TransformerModel(
                     vocab_size, rho_size, n_heads, nhid, nlayers, dropout).to(device)
             else:
@@ -225,28 +224,6 @@ class TopicEmbedding(nn.Module):
             return self.rho.weight
         else:
             raise ValueError('Wrong Embedding Type')
-
-    # TODO
-    # Train the embedding here
-    # Separate process
-    # Forward the pass instead of using weight
-    # input: batch data
-    # output: prediction for target
-
-
-#     def forward(self, inputs):
-#         if self.emb_type is 'BERT':
-#             output = model(inputs)
-#             output_v = output.view(-1, output.shape[-1])
-#             return output_v
-#         elif self.emb_type is 'Transformer':
-#             src_mask = model.generate_square_subsequent_mask(inputs.size(0)).to(device)
-#             output = model(inputs, src_mask)
-#             return output
-#         elif self.emb_type is 'NN':
-#             return self.rho(inputs)
-#         else:
-#             raise ValueError('Wrong Embedding Type')
 
 
 class TECTM(nn.Module):
@@ -275,7 +252,7 @@ class TECTM(nn.Module):
         self.num_topics = num_topics
         self.encoder = Encoder(vocab_size, num_topics, hidden, dropout, LKJChol=LKJChol)
         self.decoder = Decoder(vocab_size, num_topics, dropout, useEmbedding, rho_size, pre_embedding, emb_type,
-                               trainEmbedding,trans_heads=trans_heads, trans_layers=trans_layers, trans_dim=trans_dim)
+                               trainEmbedding, trans_heads=trans_heads, trans_layers=trans_layers, trans_dim=trans_dim)
 
         self.loss_elbo = Trace_ELBO().differentiable_loss
         self.useEmbedding = useEmbedding
@@ -301,9 +278,7 @@ class TECTM(nn.Module):
             preds = self.decode(logtheta, beta).softmax(-1)
             total_count = int(docs.sum(-1).max())
             pyro.sample('obs', dist.Multinomial(total_count, preds), obs=docs.nan_to_num())
-        # return L_Omega
 
-    # Encoding with data input
     def guide(self, docs):
         options = dict(dtype=torch.float32, device=device)
         omega_posterior = pyro.param("omega_posterior", torch.ones((), **options),
