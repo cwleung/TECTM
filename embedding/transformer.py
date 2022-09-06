@@ -23,15 +23,11 @@ class TransformerModel(nn.Module):
     def init_weights(self):
         initrange = 0.1
         self.encoder.weight.data.uniform_(-initrange, initrange)
-        # self.decoder.bias.data.zero_()
-        # self.decoder.weight.data.uniform_(-initrange, initrange)
 
     def forward(self, src):
         src = self.encoder(src) * math.sqrt(self.ninp)
-        # src = self.pos_encoder(src)
         output = self.transformer_encoder(src)
         output = self.decoder_out(output)
-        # return F.log_softmax(output)
         return output
 
 
