@@ -48,3 +48,30 @@ class PositionalEncoding(nn.Module):
     def forward(self, x):
         x = x + self.pe[:x.size(0), :]
         return self.dropout(x)
+
+
+# conversion between two methods,
+#
+if __name__ == '__main__':
+    ntoken = 256
+    nlayers = 1
+    ninp = 32
+    nhead = 2
+    nhid = 128
+    dropout = 0
+    encoder_layers = TransformerEncoderLayer(ninp, nhead, nhid, dropout)
+    encoder_norm = LayerNorm(ninp)
+    encoder = nn.Embedding(ntoken, ninp)
+    transformer_encoder = TransformerEncoder(encoder_layers, nlayers, encoder_norm)
+
+    seqlen = 20
+    batch_size = 16
+    x = torch.randint(ntoken, size=(batch_size, seqlen))
+    print(x.shape)
+    assert x.shape == torch.Size((batch_size, seqlen))
+    x = encoder(x)
+    print(x.shape)
+    assert x.shape == torch.Size((batch_size, seqlen, ninp))
+    x = transformer_encoder(x)
+    print(x.shape)
+    assert x.shape == torch.Size((batch_size, seqlen, ninp))
