@@ -1,7 +1,9 @@
 import math
 import torch
 import torch.nn as nn
-from torch.nn import TransformerEncoder, TransformerEncoderLayer, LayerNorm
+from torch.nn import LayerNorm
+
+from embedding.attention import TransformerEncoder
 
 
 class TransformerModel(nn.Module):
@@ -12,10 +14,14 @@ class TransformerModel(nn.Module):
         self.ninp = ninp
         self.pos_encoder = PositionalEncoding(ninp, dropout)
 
-        encoder_layers = TransformerEncoderLayer(ninp, nhead, nhid, dropout)
-        encoder_norm = LayerNorm(ninp)
         self.encoder = nn.Embedding(ntoken, ninp)
-        self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers, encoder_norm)
+        self.transformer_encoder = TransformerEncoder(num_layers=nlayers,
+                                                      input_dim=nhid,
+                                                      dim_feedforward=2 * nhid,
+                                                      num_heads=nhead,
+                                                      dropout=dropout)
+        self.encoder_norm = LayerNorm(ninp)
+        # self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers, encoder_norm)
         self.decoder_out = nn.Linear(ninp, ntoken)
 
         self.init_weights()
@@ -50,8 +56,6 @@ class PositionalEncoding(nn.Module):
         return self.dropout(x)
 
 
-# conversion between two methods,
-#
 if __name__ == '__main__':
     ntoken = 256
     nlayers = 1
@@ -59,12 +63,16 @@ if __name__ == '__main__':
     nhead = 2
     nhid = 128
     dropout = 0
-    encoder_layers = TransformerEncoderLayer(ninp, nhead, nhid, dropout)
+    encoder_layers = 1
     encoder_norm = LayerNorm(ninp)
     encoder = nn.Embedding(ntoken, ninp)
-    transformer_encoder = TransformerEncoder(encoder_layers, nlayers, encoder_norm)
+    transformer_encoder = TransformerEncoder(num_layers=nlayers,
+                                             input_dim=ninp,
+                                             dim_feedforward=nhid,
+                                             num_heads=nhead,
+                                             dropout=dropout)
 
-    seqlen = 20
+    seqlen = 32
     batch_size = 16
     x = torch.randint(ntoken, size=(batch_size, seqlen))
     print(x.shape)
