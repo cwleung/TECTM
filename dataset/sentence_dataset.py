@@ -38,3 +38,7 @@ class SentencesDataset(torch.utils.data.Dataset):
         s = dataset.sentences[index]
         s = [dataset.vocab[w] if w in dataset.vocab else dataset.OUT_OF_VOCAB_IDX for w in s]
         return s
+
+if __name__ == '__main__':
+    # create a test dataset
+    SentencesDataset()
