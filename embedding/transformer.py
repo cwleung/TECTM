@@ -8,16 +8,14 @@ from embedding.attention import TransformerEncoder
 
 class TransformerModel(nn.Module):
 
-    def __init__(self, ntoken, ninp, nhead, nhid, nlayers, dropout=0):
+    def __init__(self, ntoken, ninp, nhead, nhid, nlayers, dropout=0.0):
         super(TransformerModel, self).__init__()
         self.model_type = 'Transformer'
         self.ninp = ninp
         self.pos_encoder = PositionalEncoding(ninp, dropout)
 
         self.encoder = nn.Embedding(ntoken, ninp)
-        self.transformer_encoder = TransformerEncoder(num_layers=nlayers,
-                                                      input_dim=nhid,
-                                                      dim_feedforward=2 * nhid,
+        self.transformer_encoder = TransformerEncoder(num_layers=nlayers, input_dim=ninp, dim_feedforward=2 * nhid,
                                                       num_heads=nhead,
                                                       dropout=dropout)
         self.encoder_norm = LayerNorm(ninp)
@@ -42,7 +40,6 @@ class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout=0.1, max_len=5000):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(dropout)
-
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))

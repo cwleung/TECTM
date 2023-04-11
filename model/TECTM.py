@@ -182,8 +182,7 @@ class TopicEmbedding(nn.Module):
     Output: Topic Embedding ρ: (K, E)
     """
 
-    def __init__(self, rho_size, vocab_size, pre_embedding=None,
-                 emb_type='NN', dropout=0.25, n_heads=2, nlayers=2, nhid=300):
+    def __init__(self, rho_size, vocab_size, emb_type, dropout, n_heads, nlayers, nhid, pre_embedding=None):
         """
         Init parameter
         :param rho_size: Embedding size ρ
@@ -226,9 +225,8 @@ class TECTM(nn.Module):
     Model for LKJ Correlated Topic Model
     """
 
-    def __init__(self, vocab_size, num_topics, hidden, dropout, useEmbedding=False, rho_size=128, pre_embedding=None,
-                 emb_type='NN', trainEmbedding=False, LKJChol=True,
-                 trans_heads=2, trans_layers=2, trans_dim=300):
+    def __init__(self, vocab_size, num_topics, hidden, dropout, rho_size, emb_type, trans_heads, trans_layers,
+                 trans_dim, useEmbedding=False, pre_embedding=None, trainEmbedding=False, LKJChol=True):
         """
         Init parameters
         :param LKJChol:
