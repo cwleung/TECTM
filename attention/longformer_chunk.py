@@ -1,4 +1,4 @@
-from embedding.sliding_chunks import sliding_chunks_matmul_qk, sliding_chunks_matmul_pv
+from attention._aux.sliding_chunks import sliding_chunks_matmul_qk, sliding_chunks_matmul_pv
 import math
 import torch.nn.functional as F
 from torch import nn

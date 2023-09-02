@@ -2,9 +2,9 @@ import math
 import torch
 from torch import nn
 import torch.nn.functional as F
-from embedding.sliding_chunks import diagonaled_mm as diagonaled_mm_tvm, mask_invalid_locations
-from embedding.sliding_chunks import sliding_chunks_matmul_qk, sliding_chunks_matmul_pv
-from embedding.sliding_chunks import sliding_chunks_no_overlap_matmul_qk, sliding_chunks_no_overlap_matmul_pv
+from attention._aux.sliding_chunks import diagonaled_mm as diagonaled_mm_tvm, mask_invalid_locations
+from attention._aux.sliding_chunks import sliding_chunks_matmul_qk, sliding_chunks_matmul_pv
+from attention._aux.sliding_chunks import sliding_chunks_no_overlap_matmul_qk, sliding_chunks_no_overlap_matmul_pv
 
 
 class LongformerSelfAttention(nn.Module):
