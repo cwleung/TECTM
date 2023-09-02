@@ -114,7 +114,7 @@ class Decoder(nn.Module):
         return res.float()
 
     # need to forward the loss of the neural network function
-    def __init__(self, vocab_size, num_topics, dropout, useEmbedding=False, rho_size=128, pre_embedding=None,
+    def __init__(self, vocab_size, num_topics, dropout, rho_size, useEmbedding=False, pre_embedding=None,
                  emb_type='NN', trainEmbedding=False, trans_heads=2, trans_layers=2, trans_dim=300):
         """
         Init

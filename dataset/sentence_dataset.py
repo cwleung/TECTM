@@ -63,6 +63,7 @@ if __name__ == '__main__':
               'This document is the second document.',
               'And this is the third one.',
               'Is this the first document?',
+                'The last document?',
               ]
 
     vectorizer = CountVectorizer()

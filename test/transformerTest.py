@@ -16,7 +16,7 @@ encoder_layers = 1
 
 class TestTransformer(unittest.TestCase):
 
-    def test_upper(self):
+    def test_transformer(self):
         encoder = nn.Embedding(ntoken, ninp)
         transformer_encoder = TransformerEncoder(num_layers=nlayers,
                                                  input_dim=ninp,

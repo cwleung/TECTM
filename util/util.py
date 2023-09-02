@@ -60,6 +60,16 @@ def word_export(output_path, beta, vocab, top_display=10):
                 output.write("%s\t%g\n" % (vocab[word_idx], word_dist[word_idx]))
 
 
+def stable_softmax(x, dim=0):
+    """
+    Numerically stable softmax function
+    :param x: input tensor
+    :param dim: dimension to perform softmax
+    :return: softmaxed tensor
+    """
+    return (x.exp() / x.exp().sum(dim=dim, keepdim=True)).clamp(min=1e-6)
+
+
 if __name__ == '__main__':
     a = np.arange(10)
     arr = a * a[:, np.newaxis]
