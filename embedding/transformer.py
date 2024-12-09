@@ -1,21 +1,25 @@
 import math
 import torch
 import torch.nn as nn
-from torch.nn import TransformerEncoder, TransformerEncoderLayer, LayerNorm
+from torch.nn import LayerNorm
+
+from embedding.attention import TransformerEncoder
 
 
 class TransformerModel(nn.Module):
 
-    def __init__(self, ntoken, ninp, nhead, nhid, nlayers, dropout=0):
+    def __init__(self, ntoken, ninp, nhead, nhid, nlayers, dropout=0.0):
         super(TransformerModel, self).__init__()
         self.model_type = 'Transformer'
         self.ninp = ninp
         self.pos_encoder = PositionalEncoding(ninp, dropout)
 
-        encoder_layers = TransformerEncoderLayer(ninp, nhead, nhid, dropout)
-        encoder_norm = LayerNorm(ninp)
         self.encoder = nn.Embedding(ntoken, ninp)
-        self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers, encoder_norm)
+        self.transformer_encoder = TransformerEncoder(num_layers=nlayers, input_dim=ninp, dim_feedforward=2 * nhid,
+                                                      num_heads=nhead,
+                                                      dropout=dropout)
+        self.encoder_norm = LayerNorm(ninp)
+        # self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers, encoder_norm)
         self.decoder_out = nn.Linear(ninp, ntoken)
 
         self.init_weights()
@@ -23,15 +27,11 @@ class TransformerModel(nn.Module):
     def init_weights(self):
         initrange = 0.1
         self.encoder.weight.data.uniform_(-initrange, initrange)
-        # self.decoder.bias.data.zero_()
-        # self.decoder.weight.data.uniform_(-initrange, initrange)
 
     def forward(self, src):
         src = self.encoder(src) * math.sqrt(self.ninp)
-        # src = self.pos_encoder(src)
         output = self.transformer_encoder(src)
         output = self.decoder_out(output)
-        # return F.log_softmax(output)
         return output
 
 
@@ -40,7 +40,6 @@ class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout=0.1, max_len=5000):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(dropout)
-
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
